@@ -46,6 +46,8 @@ class VectorIterator extends Iterator
     constructor: (@values) -> return
     toString: () -> 'vector([' + @values + '])'
     
+    size: () -> @values.length
+    
     next: () ->
         if not @current?
             @current = 0
@@ -101,6 +103,8 @@ class GeometryBase
                 ret.set(name, args[i])
                 i += 1
             else
+                console.log @prototype
+                console.log [kwargs.keys(), kwargs.values()]
                 value = kwargs.get(name)
                 if not value?
                     if def == undefined
@@ -155,7 +159,8 @@ class Rotate extends GeometryBase
             [@degree, @vector] = [1, @degree]
         
         if not @vector?
-            @vector = VectorIterator([1,1,1])
+            # when only a degree is specified and no vector, the rotation is around the z axis
+            @vector = new VectorIterator([0,0,1])
         
         if not (@vector instanceof VectorIterator) or @vector.values.length != 3
             throw "rotation() takes a 3-value vector as argument (got: " + @vector.toString() + ")"
@@ -184,6 +189,57 @@ class Scale extends GeometryBase
         @x = @vector.values[0]
         @y = @vector.values[1]
         @z = @vector.values[2]
+        
+        return
+    
+    toString: () -> return 'scale(' + @formatargs() + '){' + @body.toString() + '}'
+
+class MultMatrix extends GeometryBase
+    """
+    multmatrix([[a1, b1, c1, d1], [a2, b2, c2, d2], [a3, b3, c3, d3], [a4, b4, c4, d4]])
+    """
+    constructor: (@body, args, kwargs) ->
+        @prototype = ['m']
+        @parseargs(args, kwargs)
+        
+        @matrix = @argshash.get('m')
+        
+        if not (@matrix instanceof VectorIterator) or @matrix.size() != 4
+            throw "multmatrix() takes a 4x4 matrix as argument"
+        
+        @n1 = @matrix.values[0]
+        @n2 = @matrix.values[1]
+        @n3 = @matrix.values[2]
+        @n4 = @matrix.values[3]
+        
+        if not (@n1 instanceof VectorIterator) or @n1.size() != 4
+            throw "multmatrix() takes a 4x4 matrix as argument"
+        if not (@n2 instanceof VectorIterator) or @n2.size() != 4
+            throw "multmatrix() takes a 4x4 matrix as argument"
+        if not (@n3 instanceof VectorIterator) or @n3.size() != 4
+            throw "multmatrix() takes a 4x4 matrix as argument"
+        if not (@n4 instanceof VectorIterator) or @n4.size() != 4
+            throw "multmatrix() takes a 4x4 matrix as argument"
+        
+        @n11 = @n1.values[0]
+        @n12 = @n1.values[1]
+        @n13 = @n1.values[2]
+        @n14 = @n1.values[3]
+        
+        @n21 = @n2.values[0]
+        @n22 = @n2.values[1]
+        @n23 = @n2.values[2]
+        @n24 = @n2.values[3]
+        
+        @n31 = @n3.values[0]
+        @n32 = @n3.values[1]
+        @n33 = @n3.values[2]
+        @n34 = @n3.values[3]
+        
+        @n41 = @n4.values[0]
+        @n42 = @n4.values[1]
+        @n43 = @n4.values[2]
+        @n44 = @n4.values[3]
         
         return
     
@@ -288,7 +344,7 @@ class Cylinder extends GeometryBase
     constructor: (body, args, kwargs) ->
         throw 'module cannot be instantiated with a body' if body?
         
-        @prototype = [['h', 1], ['r', null], ['r1', null], ['r2', null], ['center', false], ['$fa', DEFAULT_FA], ['$fs', DEFAULT_FS]]
+        @prototype = [['h', 1], ['r', null], ['r1', null], ['r2', null], ['center', false], ['$fn', DEFAULT_FN], ['$fa', DEFAULT_FA], ['$fs', DEFAULT_FS]]
         @parseargs(args, kwargs)
         
         @height = @argshash.get('h')
@@ -300,7 +356,10 @@ class Cylinder extends GeometryBase
         else
             @r1 = @argshash.get('r1')
             @r2 = @argshash.get('r2')
-            if @r1 == null or @r2 == null
+            if @r1 == null and @r2 == null
+                @r1 = 1
+                @r2 = 1
+            else if @r1 == null or @r2 == null
                 throw 'either "r" or "r1"/"r2" must be specified for cylinder()'
         
         @center = @argshash.get('center')
@@ -388,10 +447,15 @@ class OpenSCADEvaluator
         
         ctx.set 'union', Union
         ctx.set 'difference', Difference
+        ctx.set 'intersection', Intersection
         ctx.set 'rotate', Rotate
         ctx.set 'translate', Translate
-        ctx.set 'scale', Scale
-        ctx.set 'mirror', Mirror
+        # TODO: ctx.set 'scale', Scale
+        ctx.set 'multmatrix', MultMatrix
+        # TODO: ctx.set 'mirror', Mirror
+        # TODO: ctx.set 'color', Color
+        # TODO: ctx.set 'polygon', Polygon
+        # TODO: ctx.set 'linear_extrude', LinearExtrude
         ctx.set 'render', Render
         
         ctx.set 'polyhedron', Polyhedron
@@ -538,7 +602,7 @@ class OpenSCADEvaluator
                     if ctor.arguments?
                         [pargs, pkwargs] = @walk(ctx, ctor.arguments)
                         
-                        b.prototype = pargs.concat([name, pkwargs[name]] for name in pkwargs.keys())
+                        b.prototype = pargs.concat([name, pkwargs.get(name)] for name in pkwargs.keys())
                     else
                         b.prototype = []
                     
@@ -617,7 +681,10 @@ class OpenSCADEvaluator
                     else
                         args.push v
                 return [args, kwargs]
-            when "ArgumentDeclaration" then return [node.identifier.name, @walk(ctx, node.default)]
+            when "ArgumentDeclaration"
+                defaultvalue = @walk(ctx, node.defaultvalue)
+                console.log ['arg-decl default value:', defaultvalue]
+                return [node.identifier.name, defaultvalue]
             when "CallArgument" then return [(if node.identifier? then node.identifier.name else undefined), @walk(ctx, node.value)]
             else
                 throw 'unknown language construct: ' + node.constructor.name

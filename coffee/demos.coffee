@@ -358,6 +358,7 @@ difference() {
         
         params = 
             wireframe: @select('#wireframe')[0].checked
+            opacity: 0.8
         
         threerender = new THREERenderer(@scene, params)
         @geometry = threerender.render(s)
@@ -399,11 +400,11 @@ difference() {
         geometry.vertices.push new THREE.Vector3(-50,0,0)
         geometry.vertices.push new THREE.Vector3(50,0,0)
         line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 0.8 }))
-        @scene.add line
+        @mesh.add line
         
         font = {
                 size: 4,
-                height: 20,
+                height: 1,
                 curveSegments: 2,
                 font: "helvetiker"
             }
@@ -412,30 +413,30 @@ difference() {
         mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
         mesh.position = new THREE.Vector3(55,0,0)
         mesh.rotation = new THREE.Vector3(0.1,0.1,0.1)
-        @scene.add mesh
+        @mesh.add mesh
         
         geometry = new THREE.Geometry();
-        geometry.vertices.push new THREE.Vector3(0,0,0)
+        geometry.vertices.push new THREE.Vector3(0,-50,0)
         geometry.vertices.push new THREE.Vector3(0,50,0)
-        line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 0.8 }))
-        @scene.add line
+        line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 1 }))
+        @mesh.add line
         
         geometry = new THREE.TextGeometry("y", font)
         mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
         mesh.position = new THREE.Vector3(0,55,0)
         mesh.rotation = new THREE.Vector3(0.1,0.1,0.1)
-        @scene.add mesh
+        @mesh.add mesh
         
         geometry = new THREE.Geometry();
-        geometry.vertices.push new THREE.Vector3(0,0,0)
+        geometry.vertices.push new THREE.Vector3(0,0,-50)
         geometry.vertices.push new THREE.Vector3(0,0,50)
         line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 0.8 }))
-        @scene.add line
+        @mesh.add line
         
         geometry = new THREE.TextGeometry("z", font)
         mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
         mesh.position = new THREE.Vector3(0,0,55)
-        @scene.add mesh
+        @mesh.add mesh
         
         return
     
@@ -448,12 +449,22 @@ difference() {
             #@mesh.rotation.x = (20 * 0.0174532925);
             #@mesh.rotation.y = (-20 * 0.0174532925);
         
-            @camera.position.z = 100
-            @camera.position.x = 100
+            @camera.position.z = 80
+            @camera.position.y = -65
+            @camera.position.x = 50
             #@camera.position.z = 100
-            @camera.rotation.y = (90 * 0.0174532925)
-            @camera.rotation.x = (0 * 0.0174532925)
+            
+            @camera.rotation.y = (0 * 0.0174532925)
+            @camera.rotation.x = (45 * 0.0174532925)
             @camera.rotation.z = (0 * 0.0174532925)
+            
+            @camera_vector.x = 0
+            @camera_vector.y = 0
+            @camera_vector.z = 0
+            #@camera.lookAt(@camera_vector)
+            
+            @mesh.rotation.z += -0.01;
+            
             #@camera.position.z = 100;
             #@camera.position.z = 500;
         

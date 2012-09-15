@@ -6,13 +6,61 @@ class THREERenderer
     
         @material_parameters ?= {}
         @material_parameters['color'] ?= new THREE.Color(0xff5566)
-        @material_parameters['vertexColors'] ?= new THREE.Color(0xffffff)
-        @material_parameters['refractionRatio'] ?= 0.1
+        @material_parameters['vertexColors'] ?= new THREE.Color(0)
+        @material_parameters['refractionRatio'] ?= 5
+        @material_parameters['wireframeLinewidth'] ?= 2
     
         @debug = yes
         
         return
 
+    apply_rotation_matrix: (geometry, angles) ->
+        
+        if angles.x? and angles.x > 0
+            angle = angles.x * 0.0174532925
+            geometry.applyMatrix(new THREE.Matrix4(
+                1,0,0, 0,
+                0,Math.cos(angle),-Math.sin(angle), 0,
+                0,Math.sin(angle),Math.cos(angle), 0,
+                0,0,0, 1))
+        
+        if angles.y? and angles.y > 0
+            angle = angles.y * 0.0174532925
+            geometry.applyMatrix(new THREE.Matrix4(
+                Math.cos(angle), 0, Math.sin(angle), 0,
+                0,1,0, 0,
+                -Math.sin(angle),0,Math.cos(angle), 0,
+                0,0,0, 1))
+        
+        if angles.z? and angles.z > 0
+            angle = angles.z * 0.0174532925
+            geometry.applyMatrix(new THREE.Matrix4(
+                Math.cos(angle),-Math.sin(angle), 0, 0,
+                Math.sin(angle),Math.cos(angle), 0, 0,
+                0, 0, 1, 0,
+                0,0,0, 1))
+        
+        return
+    
+    apply_translation_matrix: (geometry, positions) ->
+    
+        x = positions.x
+        x ?= 0
+        
+        y = positions.y
+        y ?= 0
+        
+        z = positions.z
+        z ?= 0
+        
+        geometry.applyMatrix(new THREE.Matrix4(
+            1,0,0, x,
+            0,1,0, y,
+            0,0,1, z,
+            0,0,0, 1))
+        
+        return
+    
     render: (node) ->
         
         
@@ -32,8 +80,8 @@ class THREERenderer
                 for vector in points
                     vertex = new THREE.Vector3();
                     vertex.x = vector.values[0]
-                    vertex.y = vector.values[2]
-                    vertex.z = vector.values[1]
+                    vertex.y = vector.values[1]
+                    vertex.z = vector.values[2]
                     
                     geometry.vertices.push(vertex)
                 
@@ -44,8 +92,6 @@ class THREERenderer
                     vertex.c = vector.values[2]
                     
                     geometry.faces.push( vertex )
-                
-                #geometry.colors = colors;
                 
                 geometry.computeCentroids();
                 geometry.mergeVertices();
@@ -59,15 +105,11 @@ class THREERenderer
                 return geometry
                 
             when 'Cube'
-                geometry = new THREE.CubeGeometry(node.x, node.z, node.y)
+                geometry = new THREE.CubeGeometry(node.x, node.y, node.z)
                 
                 if not node.center
-                    # apply translation matrix to center the object
-                    geometry.applyMatrix(new THREE.Matrix4(
-                        1,0,0, node.x / 2,
-                        0,1,0, node.z / 2,
-                        0,0,1, node.y / 2,
-                        0,0,0, 1))
+                    # apply translation matrix to avoid centering the object
+                    @apply_translation_matrix(geometry, {x: node.x / 2, y: node.y / 2, z: node.z / 2})
                 
                 console.log ['cube', geometry] if @debug
                 return geometry
@@ -75,29 +117,28 @@ class THREERenderer
             when 'Cylinder'
                 geometry = new THREE.CylinderGeometry(node.r2, node.r1, node.height)
                 
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                mesh = new THREE.Mesh(geometry, material)
+                @apply_rotation_matrix(geometry, {x: 90})
                 
                 if not node.center
-                    mesh.position.y += node.height / 2
+                    @apply_translation_matrix(geometry, {z: node.height/2})
                 
                 console.log ['cylinder', geometry] if @debug
-                return mesh
+                return geometry
                 
             when 'Objects'
                 list = (@render(obj) for obj in node.objects)
-                console.log ['objects', geometry] if @debug
-                return list.compact()
+                list = list.compact()
+                console.log ['objects', list] if @debug
+                return list[0] if list.length == 1
+                return list
             
             when 'Union'
                 
                 list = @render(node.body)
                 return if not list?
-                
-                list = [list] if not (list instanceof Array)
+                return list if not (list instanceof Array) or list.length <= 1
                 list = list.compact()
                 
-                """
                 union = THREE.CSG.toCSG(list[0]);
                 
                 for child in list.slice(1)
@@ -105,46 +146,14 @@ class THREERenderer
                     union = union.union(csg)
                 
                 geometry = THREE.CSG.fromCSG(union)
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                
-                mesh = new THREE.Mesh(geometry, material)
                 
                 console.log ['union', geometry] if @debug
-                return mesh"""
-                
-                geometry = new THREE.Geometry()
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                
-                mesh = new THREE.Mesh(geometry, material)
-                
-                #console.log list
-                
-                mesh.add(child) for child in list
-                
-                console.log ['union', geometry] if @debug
-                return mesh
+                return geometry
             
             when 'Difference'
                 
-                #var cube = THREE.CSG.toCSG(new THREE.CubeGeometry( 2, 2, 2 ));
-                #var sphere = THREE.CSG.toCSG(new THREE.SphereGeometry(1.4, 16, 16));
-                #var geometry = THREE.CSG.fromCSG( sphere.subtract(cube) );
-                #var mesh = new THREE.Mesh(geometry, new THREE.MeshNormalMaterial());
-                
-                geometry = new THREE.ExtrudeGeometry()
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                
-                mesh = new THREE.Mesh(geometry, material)
-                
-                #console.log list
-                
-                mesh.add(child) for child in list
-                
-                console.log ['difference', geometry] if @debug
-                return mesh
-                
-                
                 list = @render(node.body)
+                return if not list?
                 return list if not (list instanceof Array) or list.length <= 1
                 list = list.compact()
                 
@@ -155,20 +164,11 @@ class THREERenderer
                     diff = diff.subtract(csg)
                 
                 geometry = THREE.CSG.fromCSG(diff)
-                material = new THREE.MeshBasicMaterial(@material_parameters)
                 
-                mesh = new THREE.Mesh(geometry, material)
-                
-                #console.log ['difference', mesh]
                 console.log ['difference', geometry] if @debug
-                return mesh
+                return geometry
             
             when 'Intersection'
-                
-                #var cube = THREE.CSG.toCSG(new THREE.CubeGeometry( 2, 2, 2 ));
-                #var sphere = THREE.CSG.toCSG(new THREE.SphereGeometry(1.4, 16, 16));
-                #var geometry = THREE.CSG.fromCSG( sphere.subtract(cube) );
-                #var mesh = new THREE.Mesh(geometry, new THREE.MeshNormalMaterial());
                 
                 list = @render(node.body)
                 return list if not (list instanceof Array) or list.length <= 1
@@ -181,12 +181,9 @@ class THREERenderer
                     geometry = geometry.intersect(csg)
                 
                 geometry = THREE.CSG.fromCSG(geometry)
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                
-                mesh = new THREE.Mesh(geometry, material)
                 
                 console.log ['intersection', geometry] if @debug
-                return mesh
+                return geometry
             
             when 'Translate'
                 
@@ -194,19 +191,12 @@ class THREERenderer
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
-                geometry = new THREE.Geometry()
-                material = new THREE.MeshBasicMaterial(@material_parameters)
+                for geometry in list
+                    @apply_translation_matrix(geometry, {x: node.x, y: node.y, z: node.z})
                 
-                mesh = new THREE.Mesh(geometry, material)
-                
-                mesh.add(child) for child in list
-                
-                mesh.position.x += node.x
-                mesh.position.y += node.z
-                mesh.position.z -= node.y
-                
-                console.log ['translate', geometry] if @debug
-                return mesh
+                console.log ['translate', list] if @debug
+                return list[0] if list.length == 1
+                return list
             
             when 'Scale'
                 
@@ -214,21 +204,28 @@ class THREERenderer
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
-                geometry = new THREE.Geometry()
-                material = new THREE.MeshBasicMaterial(@material_parameters)
+                #for child in list
+                    #@apply_scale_matrix(child, {x: node.x, y: node.y, z: node.z})
                 
-                mesh = new THREE.Mesh(geometry, material)
+                console.log ['scale', list] if @debug
+                return list[0] if list.length == 1
+                return list
+            
+            when 'MultMatrix'
                 
-                console.log list
+                list = @render(node.body)
+                list = [list] if not (list instanceof Array)
+                list = list.compact()
                 
-                mesh.add(child) for child in list
+                for child in list
+                    child.applyMatrix(new THREE.Matrix4(node.n11, node.n12, node.n13, node.n14,
+                                                    node.n21, node.n22, node.n23, node.n24,
+                                                    node.n31, node.n32, node.n33, node.n34,
+                                                    node.n41, node.n42, node.n43, node.n44))
                 
-                mesh.scale.x = node.x
-                mesh.scale.y = node.z
-                mesh.scale.z = node.y
-                
-                console.log ['scale', geometry] if @debug
-                return mesh
+                console.log ['multmatrix', list] if @debug
+                return list[0] if list.length == 1
+                return list
             
             when 'Rotate'
                 
@@ -237,22 +234,12 @@ class THREERenderer
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
+                for child in list
+                    @apply_rotation_matrix(child, {x: node.degree * node.x, y: node.degree * node.y, z: node.degree * node.z})
                 
-                geometry = new THREE.Geometry()
-                material = new THREE.MeshBasicMaterial(@material_parameters)
-                
-                mesh = new THREE.Mesh(geometry, material)
-                
-                console.log list
-                
-                mesh.add(child) for child in list
-                
-                mesh.rotation.x += (node.degree * node.x) * 0.0174532925
-                mesh.rotation.y += (node.degree * node.z) * 0.0174532925
-                mesh.rotation.z -= (node.degree * node.y) * 0.0174532925
-                
-                console.log ['rotate', geometry] if @debug
-                return mesh
+                console.log ['rotate', list] if @debug
+                return list[0] if list.length == 1
+                return list
             else
                 throw 'Cannot render type "' + nodetype + '"'
         

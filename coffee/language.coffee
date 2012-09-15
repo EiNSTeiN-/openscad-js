@@ -310,11 +310,11 @@ class ArgumentList
 
 class ArgumentDeclaration
 
-    constructor: (@identifier, @default) ->
+    constructor: (@identifier, @defaultvalue) ->
         return
     
-    pprint: () -> return @identifier.pprint() + (if @default then ' = ' + @default.pprint() else '')
-    dump: () -> return '<arg-decl id=' + @identifier.dump() + ' default=' + (if @default then @default.dump() else 'none') + '>'
+    pprint: () -> return @identifier.pprint() + (if @defaultvalue then ' = ' + @defaultvalue.pprint() else '')
+    dump: () -> return '<arg-decl id=' + @identifier.dump() + ' default=' + (if @defaultvalue then @defaultvalue.dump() else 'none') + '>'
 
 class CallArgument
 
