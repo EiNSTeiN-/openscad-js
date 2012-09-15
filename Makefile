@@ -7,7 +7,7 @@ coffee-files:
 	coffee --bare --compile --output ./libs ./coffee/*
 
 libs:
-        mkdir libs
+	mkdir libs
 
 libs/openscad.js: libs
 	coffee --bare --compile --join libs/openscad.js ./coffee
