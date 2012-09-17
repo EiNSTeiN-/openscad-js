@@ -358,14 +358,17 @@ difference() {
         
         params = 
             wireframe: @select('#wireframe')[0].checked
-            opacity: 0.8
+            opacity: 0.7
+            color: new THREE.Color(0xcc0000)
+            vertexColors: new THREE.Color(0)
+            wireframeLinewidth: 2
         
-        threerender = new THREERenderer(@scene, params)
+        threerender = new THREERenderer(@scene)
         @geometry = threerender.render(s)
         
         console.log ['geometry', @geometry]
         
-        material = new THREE.MeshBasicMaterial(threerender.material_parameters)
+        material = new THREE.MeshBasicMaterial(params)
         @mesh = new THREE.Mesh(@geometry, material)
                 
         #console.log @mesh

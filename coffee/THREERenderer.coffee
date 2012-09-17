@@ -2,62 +2,12 @@
 
 class THREERenderer
 
-    constructor: (@scene, @material_parameters) ->
-    
-        @material_parameters ?= {}
-        @material_parameters['color'] ?= new THREE.Color(0xff5566)
-        @material_parameters['vertexColors'] ?= new THREE.Color(0)
-        @material_parameters['refractionRatio'] ?= 5
-        @material_parameters['wireframeLinewidth'] ?= 2
-    
+    constructor: (@scene, @params) ->
+        
+        @params ?= {}
+        @params['default_color'] ?= new THREE.Color(0xff5566)
+        
         @debug = yes
-        
-        return
-
-    apply_rotation_matrix: (geometry, angles) ->
-        
-        if angles.x? and angles.x > 0
-            angle = angles.x * 0.0174532925
-            geometry.applyMatrix(new THREE.Matrix4(
-                1,0,0, 0,
-                0,Math.cos(angle),-Math.sin(angle), 0,
-                0,Math.sin(angle),Math.cos(angle), 0,
-                0,0,0, 1))
-        
-        if angles.y? and angles.y > 0
-            angle = angles.y * 0.0174532925
-            geometry.applyMatrix(new THREE.Matrix4(
-                Math.cos(angle), 0, Math.sin(angle), 0,
-                0,1,0, 0,
-                -Math.sin(angle),0,Math.cos(angle), 0,
-                0,0,0, 1))
-        
-        if angles.z? and angles.z > 0
-            angle = angles.z * 0.0174532925
-            geometry.applyMatrix(new THREE.Matrix4(
-                Math.cos(angle),-Math.sin(angle), 0, 0,
-                Math.sin(angle),Math.cos(angle), 0, 0,
-                0, 0, 1, 0,
-                0,0,0, 1))
-        
-        return
-    
-    apply_translation_matrix: (geometry, positions) ->
-    
-        x = positions.x
-        x ?= 0
-        
-        y = positions.y
-        y ?= 0
-        
-        z = positions.z
-        z ?= 0
-        
-        geometry.applyMatrix(new THREE.Matrix4(
-            1,0,0, x,
-            0,1,0, y,
-            0,0,1, z,
-            0,0,0, 1))
         
         return
     
@@ -108,8 +58,12 @@ class THREERenderer
                 geometry = new THREE.CubeGeometry(node.x, node.y, node.z)
                 
                 if not node.center
-                    # apply translation matrix to avoid centering the object
-                    @apply_translation_matrix(geometry, {x: node.x / 2, y: node.y / 2, z: node.z / 2})
+                    # apply translation matrix to revert automatic centering of the object
+                    geometry.applyMatrix(new THREE.Matrix4(
+                        1,0,0, node.x / 2,
+                        0,1,0, node.y / 2,
+                        0,0,1, node.z / 2,
+                        0,0,0, 1))
                 
                 console.log ['cube', geometry] if @debug
                 return geometry
@@ -117,10 +71,20 @@ class THREERenderer
             when 'Cylinder'
                 geometry = new THREE.CylinderGeometry(node.r2, node.r1, node.height)
                 
-                @apply_rotation_matrix(geometry, {x: 90})
+                # rotate 90 degree around x axis for consistency with openscad
+                angle = 90 * 0.0174532925
+                geometry.applyMatrix(new THREE.Matrix4(
+                    1,0,0, 0,
+                    0,Math.cos(angle),-Math.sin(angle), 0,
+                    0,Math.sin(angle),Math.cos(angle), 0,
+                    0,0,0, 1))
                 
                 if not node.center
-                    @apply_translation_matrix(geometry, {z: node.height/2})
+                    geometry.applyMatrix(new THREE.Matrix4(
+                        1,0,0, 0,
+                        0,1,0, 0,
+                        0,0,1, node.height / 2,
+                        0,0,0, 1))
                 
                 console.log ['cylinder', geometry] if @debug
                 return geometry
@@ -185,29 +149,34 @@ class THREERenderer
                 console.log ['intersection', geometry] if @debug
                 return geometry
             
-            when 'Translate'
+            when 'Color'
                 
                 list = @render(node.body)
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
-                for geometry in list
-                    @apply_translation_matrix(geometry, {x: node.x, y: node.y, z: node.z})
+                # This doesn't work with a CanvasRenderer so I couldn't test anything
+                for child in list
+                    child.dynamic = true
+                    for i in [0..child.vertices.length-1]
+                        #sides = ( face instanceof THREE.Face3 ) ? 3 : 4
+                        color = new THREE.Color(0xff0000)
+                        #color.setRGB(node.r, node.g, node.b)
+                        child.colors[i] = color
+                    console.log child.faces.length
+                    for i in [0..child.faces.length-1]
+                        face = child.faces[i]
+                        face.color = new THREE.Color(0xff0000)
+                        console.log ['face', face]
+                        sides = if face instanceof THREE.Face3 then 3 else 4
+                        console.log sides
+                        for j in [0..sides-1]
+                            color = new THREE.Color(0xff0000)
+                            face.vertexColors[j] = color
+                        
+                    console.log ['color item', child]
                 
-                console.log ['translate', list] if @debug
-                return list[0] if list.length == 1
-                return list
-            
-            when 'Scale'
-                
-                list = @render(node.body)
-                list = [list] if not (list instanceof Array)
-                list = list.compact()
-                
-                #for child in list
-                    #@apply_scale_matrix(child, {x: node.x, y: node.y, z: node.z})
-                
-                console.log ['scale', list] if @debug
+                console.log ['color', list] if @debug
                 return list[0] if list.length == 1
                 return list
             
@@ -227,19 +196,6 @@ class THREERenderer
                 return list[0] if list.length == 1
                 return list
             
-            when 'Rotate'
-                
-                #console.log ['rotate', node.body]
-                list = @render(node.body)
-                list = [list] if not (list instanceof Array)
-                list = list.compact()
-                
-                for child in list
-                    @apply_rotation_matrix(child, {x: node.degree * node.x, y: node.degree * node.y, z: node.degree * node.z})
-                
-                console.log ['rotate', list] if @debug
-                return list[0] if list.length == 1
-                return list
             else
                 throw 'Cannot render type "' + nodetype + '"'
         

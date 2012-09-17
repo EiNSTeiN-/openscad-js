@@ -103,8 +103,8 @@ class GeometryBase
                 ret.set(name, args[i])
                 i += 1
             else
-                console.log @prototype
-                console.log [kwargs.keys(), kwargs.values()]
+                #console.log @prototype
+                #console.log [kwargs.keys(), kwargs.values()]
                 value = kwargs.get(name)
                 if not value?
                     if def == undefined
@@ -141,7 +141,66 @@ class Echo extends GeometryBase
     
     toString: () -> 'echo(' + @args.join(',') + ')'
 
-# transofrmations
+ColorList =
+    lavander: [0,0,0]
+    
+
+class Color extends GeometryBase
+    """
+    color([r, g, b, a])
+    color("name")
+    """
+    constructor: (@body, args, kwargs) ->
+        @prototype = ['color', ['alpha', null]]
+        @parseargs(args, kwargs)
+        
+        @color = @argshash.get('color')
+        @alpha = @argshash.get('alpha')
+        
+        if @degree instanceof VectorIterator and not b?
+            [@degree, @vector] = [1, @degree]
+        
+        if not @vector?
+            # when only a degree is specified and no vector, the rotation is around the z axis
+            @vector = new VectorIterator([0,0,1])
+        
+        if (@color instanceof VectorIterator) and @alpha == null
+            if @color.size() not in [3,4]
+                throw "color() takes a 3-value or 4-value vector as argument (got: " + @color.toString() + ")"
+            @r = @color.values[0]
+            @g = @color.values[1]
+            @b = @color.values[2]
+            @a = if @color.size() == 4 then @color.values[4] else 1
+        else if typeof @color == "string"
+            if ColorList[@color]?
+                [@r,@g,@b] = ColorList[@color]
+            else
+                throw "specified unknown color name as color() 1st parameter"
+        else
+            throw "color() takes a vector or color name as argument"
+        
+        @x = @vector.values[0]
+        @y = @vector.values[1]
+        @z = @vector.values[2]
+        
+        return
+    
+    toString: () -> return 'rotate(' + @formatargs() + '){' + @body.toString() + '}'
+
+# transofrmations: they all end up in a multmatrix operation; classes are just for readability
+
+prepare_multmatrix = (body, v) ->
+    # this function is  a little hackerish because we take a simple array of arrays, we objectify
+    # it into many VectorIterators, then create a MultMatrix object with all that only so it can
+    # be converted back into its basic elements
+    m1 = new VectorIterator([v[0][0],v[0][1],v[0][2],v[0][3]])
+    m2 = new VectorIterator([v[1][0],v[1][1],v[1][2],v[1][3]])
+    m3 = new VectorIterator([v[2][0],v[2][1],v[2][2],v[2][3]])
+    m4 = new VectorIterator([v[3][0],v[3][1],v[3][2],v[3][3]])
+    matrix = new VectorIterator([m1,m2,m3,m4])
+    kwargs = new Hash({m: matrix})
+    return new MultMatrix(body, [], kwargs)
+
 class Rotate extends GeometryBase
     """
     rotate(a = deg)
@@ -166,10 +225,36 @@ class Rotate extends GeometryBase
             throw "rotation() takes a 3-value vector as argument (got: " + @vector.toString() + ")"
         
         @x = @vector.values[0]
+        @x *= 0.0174532925
         @y = @vector.values[1]
+        @y *= 0.0174532925
         @z = @vector.values[2]
+        @z *= 0.0174532925
         
-        return
+        parent = @body
+        
+        if @x != 0
+            parent = prepare_multmatrix(parent, [
+                [1,0,0, 0],
+                [0,Math.cos(@x),-Math.sin(@x), 0],
+                [0,Math.sin(@x),Math.cos(@x), 0],
+                [0,0,0, 1]])
+        
+        if @y != 0
+            parent = prepare_multmatrix(parent, [
+                [Math.cos(@y), 0, Math.sin(@y), 0],
+                [0,1,0, 0],
+                [-Math.sin(@y),0,Math.cos(@y), 0],
+                [0,0,0, 1]])
+        
+        if @z != 0
+            parent = prepare_multmatrix(parent, [
+                [Math.cos(@z),-Math.sin(@z), 0, 0],
+                [Math.sin(@z),Math.cos(@z), 0, 0],
+                [0, 0, 1, 0],
+                [0,0,0, 1]])
+        
+        return parent
     
     toString: () -> return 'rotate(' + @formatargs() + '){' + @body.toString() + '}'
 
@@ -181,18 +266,89 @@ class Scale extends GeometryBase
         @prototype = ['vector']
         @parseargs(args, kwargs)
         
-        @vector = @argshash.get('vector')
+        vector = @argshash.get('vector')
+        
+        if typeof vector == 'number'
+            @vector = new VectorIterator([vector, vector, vector])
+        else
+            @vector = vector
         
         if not (@vector instanceof VectorIterator) or @vector.values.length != 3
-            throw "scale() takes a 3-value vector as argument (got: " + @vector.toString() + ")"
+            throw "scale() takes a 3-value vector as argument (got: " + vector.toString() + ")"
         
         @x = @vector.values[0]
         @y = @vector.values[1]
         @z = @vector.values[2]
         
-        return
+        m = @body
+        
+        if @x != 0 or @y != 0 or @z != 0
+            m = prepare_multmatrix(m, [
+                [@x,0,0,0],
+                [0,@y,0,0],
+                [0,0,@z,0],
+                [0,0,0,1]])
+        
+        return m
     
     toString: () -> return 'scale(' + @formatargs() + '){' + @body.toString() + '}'
+
+class Mirror extends GeometryBase
+    """
+    mirror(v = [x, y, z])
+    """
+    constructor: (@body, args, kwargs) ->
+        @prototype = ['vector']
+        @parseargs(args, kwargs)
+        
+        @vector = @argshash.get('vector')
+        
+        if not (@vector instanceof VectorIterator) or @vector.values.length != 3
+            throw "mirror() takes a 3-value vector as argument (got: " + @vector.toString() + ")"
+        
+        @x = @vector.values[0]
+        @y = @vector.values[1]
+        @z = @vector.values[2]
+        
+        m = @body
+        
+        if @x != 0 or @y != 0 or @z != 0
+            m = prepare_multmatrix(m, [
+                [(if @x != 0 then -1 else 1),0,0,0],
+                [0,(if @y != 0 then -1 else 1),0,0],
+                [0,0,(if @z != 0 then -1 else 1),0],
+                [0,0,0,1]])
+        
+        return m
+    
+    toString: () -> return 'mirror(' + @formatargs() + '){' + @body.toString() + '}'
+
+class Translate extends GeometryBase
+    constructor: (@body, args, kwargs) ->
+        @prototype = ['convexity']
+        @parseargs(args, kwargs)
+        
+        @convexity = @argshash.get('convexity')
+        
+        if not (@convexity instanceof VectorIterator) or @convexity.values.length != 3
+            throw "parameter `convexity' of translate() should evaluate to a 3-value vector or a number (got: " + @convexity.toString() + ")"
+        
+        @x = @convexity.values[0]
+        @y = @convexity.values[1]
+        @z = @convexity.values[2]
+        
+        m = @body
+        
+        if @x != 0 or @y != 0 or @z != 0
+            m = prepare_multmatrix(m, [
+                [1,0,0, @x],
+                [0,1,0, @y],
+                [0,0,1, @z],
+                [0,0,0, 1]])
+        
+        return m
+    
+    toString: () -> return 'translate(' + @formatargs() + '){' + @body.toString() + '}'
 
 class MultMatrix extends GeometryBase
     """
@@ -243,46 +399,11 @@ class MultMatrix extends GeometryBase
         
         return
     
-    toString: () -> return 'scale(' + @formatargs() + '){' + @body.toString() + '}'
+    toString: () -> return 'multmatrix(' + @formatargs() + '){' + @body.toString() + '}'
 
-class Mirror extends GeometryBase
-    """
-    mirror(v = [x, y, z])
-    """
-    constructor: (@body, args, kwargs) ->
-        @prototype = ['vector']
-        @parseargs(args, kwargs)
-        
-        @vector = @argshash.get('vector')
-        
-        if not (@vector instanceof VectorIterator) or @vector.values.length != 3
-            throw "mirror() takes a 3-value vector as argument (got: " + @vector.toString() + ")"
-        
-        @x = @vector.values[0]
-        @y = @vector.values[1]
-        @z = @vector.values[2]
-        
-        return
-    
-    toString: () -> return 'mirror(' + @formatargs() + '){' + @body.toString() + '}'
 
-class Translate extends GeometryBase
-    constructor: (@body, args, kwargs) ->
-        @prototype = ['convexity']
-        @parseargs(args, kwargs)
-        
-        @convexity = @argshash.get('convexity')
-        
-        if @convexity instanceof VectorIterator and @convexity.values.length == 3
-            @x = @convexity.values[0]
-            @y = @convexity.values[1]
-            @z = @convexity.values[2]
-        else
-            throw "parameter `convexity' of translate() should evaluate to a 3-value vector or a number (got: " + @convexity.toString() + ")"
-        return
-    
-    toString: () -> return 'translate(' + @formatargs() + '){' + @body.toString() + '}'
 
+# boolean operations
 
 class Difference extends GeometryBase
     constructor: (@body) -> return
@@ -450,10 +571,10 @@ class OpenSCADEvaluator
         ctx.set 'intersection', Intersection
         ctx.set 'rotate', Rotate
         ctx.set 'translate', Translate
-        # TODO: ctx.set 'scale', Scale
+        ctx.set 'scale', Scale
         ctx.set 'multmatrix', MultMatrix
-        # TODO: ctx.set 'mirror', Mirror
-        # TODO: ctx.set 'color', Color
+        ctx.set 'mirror', Mirror
+        # TODO: NOT POSSIBLE WITH CANVAS ctx.set 'color', Color
         # TODO: ctx.set 'polygon', Polygon
         # TODO: ctx.set 'linear_extrude', LinearExtrude
         ctx.set 'render', Render
@@ -683,7 +804,6 @@ class OpenSCADEvaluator
                 return [args, kwargs]
             when "ArgumentDeclaration"
                 defaultvalue = @walk(ctx, node.defaultvalue)
-                console.log ['arg-decl default value:', defaultvalue]
                 return [node.identifier.name, defaultvalue]
             when "CallArgument" then return [(if node.identifier? then node.identifier.name else undefined), @walk(ctx, node.value)]
             else
