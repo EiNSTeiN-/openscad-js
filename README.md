@@ -16,6 +16,7 @@ The following libraries are included in the www/js/3rd-party/ folder:
 - prototype.js - http://prototypejs.org/
 - THREE.js - http://mrdoob.github.com/three.js/
 - ThreeCSG.js - Chandler Prall, https://github.com/chandlerprall/ThreeCSG
+- ACE - http://ace.ajax.org/
 
 Compilation
 ===========

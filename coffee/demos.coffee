@@ -257,7 +257,7 @@ difference() {
     }
 }
         """
-        filetext="""
+        @filetext="""
 for(i = [ [ 0,  0,  0],
            [10, 12, 10],
            [20, 24, 20],
@@ -288,10 +288,14 @@ for(i = [ [ 0,  0,  0],
         
         @insert new Template(t).evaluate(data)
         
-        @editor = new TextEditor({id: 'editor', style: 'width: 490px; height: 480px;'})
-        @select('#file-parent')[0].insert @editor
-        @editor.update filetext
-            
+        @editor_div = new Element('div', {id: 'editor', style: 'width: 490px; height: 480px;'})
+        @select('#file-parent')[0].insert @editor_div
+        @editor_div.update @filetext
+        
+        @editor = ace.edit(@editor_div)
+        @editor.setTheme("ace/theme/dawn")
+        @editor.getSession().setMode("ace/mode/scad")
+        
         @initial_zoom = 100
         @zoom_increment = 25
         
@@ -361,7 +365,7 @@ for(i = [ [ 0,  0,  0],
         
         @scene = new THREE.Scene()
         
-        tree = @parser.parse @select('#editor')[0].text
+        tree = @parser.parse @editor.getValue()
         
         evaluator = new OpenSCADEvaluator(tree)
         
