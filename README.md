@@ -19,7 +19,8 @@ The following libraries are included in the www/js/3rd-party/ folder:
 
 Compilation
 ===========
-'make' will compile the jison lexer and all coffeescript files to javascript.
-similarly, 'make watch' will monitor coffeescript files for changes and recompile them automagically to enable quick development.
+Typing 'make' will compile the jison lexer and all coffeescript files to javascript.
+Similarly, 'make watch' and 'make watch-www' will monitor coffeescript files for changes and recompile them automagically to enable quick development.
 
-coffescripts are compiled in multiple .js files as well as a single monolitic .js file containing everything.
+Coffescripts can be compiled in multiple .js files as well as a single monolitic .js file containing everything. 
+'make watch' will compile separate .js files and 'make watch-www' will compile the monolitic .js library directly in the www/ folder.
