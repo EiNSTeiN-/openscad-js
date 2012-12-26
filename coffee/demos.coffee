@@ -230,7 +230,7 @@ class THREERenderDemo
     
     init: () ->
         
-        file = """
+        filetext = """
 spool_diameter = 40;
 spool_height = 90;
 shell_width = 1.2;
@@ -257,12 +257,22 @@ difference() {
     }
 }
         """
-        file="cube(20);"
+        filetext="""
+for(i = [ [ 0,  0,  0],
+           [10, 12, 10],
+           [20, 24, 20],
+           [30, 36, 30],
+           [20, 48, 40],
+           [10, 60, 50] ])
+{
+    translate(i)
+    cube([50, 15, 10], center = true);
+}"""
         
         t = """
         <div>
             <div style="float: left; width: 500px; height: 500px; border: 0px #808080 solid; padding: 4px;">
-                <textarea id="file" style="width: 490px; height: 480px;">#{file}</textarea>
+                <div id="file-parent"></div>
                 <input id="submit" type="button" value="OK" />
             </div>
             <div id="scene" style="float: left; width: 700px; height: 480px; border: 1px #808080 solid; margin: 4px;"></div>
@@ -278,6 +288,10 @@ difference() {
         
         @insert new Template(t).evaluate(data)
         
+        @editor = new TextEditor({id: 'editor', style: 'width: 490px; height: 480px;'})
+        @select('#file-parent')[0].insert @editor
+        @editor.update filetext
+            
         @initial_zoom = 100
         @zoom_increment = 25
         
@@ -347,7 +361,7 @@ difference() {
         
         @scene = new THREE.Scene()
         
-        tree = @parser.parse @select('#file')[0].value
+        tree = @parser.parse @select('#editor')[0].text
         
         evaluator = new OpenSCADEvaluator(tree)
         
