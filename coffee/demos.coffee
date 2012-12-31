@@ -230,7 +230,7 @@ class THREERenderDemo
     
     init: () ->
         
-        filetext = """
+        @filetext = """
 spool_diameter = 40;
 spool_height = 90;
 shell_width = 1.2;
@@ -257,17 +257,6 @@ difference() {
     }
 }
         """
-        @filetext="""
-for(i = [ [ 0,  0,  0],
-           [10, 12, 10],
-           [20, 24, 20],
-           [30, 36, 30],
-           [20, 48, 40],
-           [10, 60, 50] ])
-{
-    translate(i)
-    cube([50, 15, 10], center = true);
-}"""
         
         t = """
         <div>
@@ -288,6 +277,38 @@ for(i = [ [ 0,  0,  0],
         
         @insert new Template(t).evaluate(data)
         
+        @initeditor()
+        
+        @parser = new lexer.Parser()
+        
+        @width = 700
+        @height = 480
+    
+        @zoom = 20
+        @zoom_speed = 5
+        
+        @move_theta = 45
+        @move_phi = 60
+        @radius = 1600
+        
+        @initrenderer()
+        
+        @scene = new THREE.Scene()
+        @initcamera()
+        @initlights()
+        @initgrid()
+        @initcontrols()
+        
+        @select('#wireframe')[0].observe 'click', (e) => @update(e)
+        @select('#submit')[0].observe 'click', (e) => @update(e)
+        
+        @update()
+        @animate()
+        
+        return
+    
+    initeditor: () ->
+        
         @editor_div = new Element('div', {id: 'editor', style: 'width: 490px; height: 480px;'})
         @select('#file-parent')[0].insert @editor_div
         @editor_div.update @filetext
@@ -296,77 +317,129 @@ for(i = [ [ 0,  0,  0],
         @editor.setTheme("ace/theme/dawn")
         @editor.getSession().setMode("ace/mode/scad")
         
-        @initial_zoom = 100
-        @zoom_increment = 25
-        
-        @initscene()
-        @animate()
-        
-        @parser = new lexer.Parser()
-        
-        @select('#wireframe')[0].observe 'click', (e) => @update(e)
-        @select('#submit')[0].observe 'click', (e) => @update(e)
-        sceneelement = @select('#scene')[0]
-        sceneelement.observe 'mousewheel', (e) => @mousewheel(e)
-        @select('#scene')[0].observe 'mousedown', (e) => @move_start(e)
-        @select('#scene')[0].observe 'mouseup', (e) => @move_end(e)
-        
-        @camera_vector = new THREE.Vector3();
-        @camera_vector.x = 0
-        @camera_vector.y = 0
-        @camera_vector.z = 0
-        @camera.lookAt(@camera_vector)
-        
-        @update()
-        
         return
     
-    
-    move_start: (e) ->
+    initcontrols: () ->
+        @select('#scene')[0].observe 'mousewheel', (e) => @mousewheel(e)
         
-        #.rotation.y += ( targetRotation - parent.rotation.y ) * 0.05;
+        @controls = new THREE.TrackballControls( @camera, @renderer.domElement )
+
+        @controls.rotateSpeed = 1.0
+        @controls.panSpeed = 0.2
+
+        @controls.noZoom = false
+        @controls.noPan = false
+
+        @controls.staticMoving = true
+        @controls.dynamicDampingFactor = 0.3
         
-        
-        return
-    
-    move_end: (e) ->
-    
-        
+        @controls.keys = [ 65, 83, 68 ]
         return
     
     mousewheel: (e) ->
-        @camera.position.z += if e.wheelDelta > 0 then @zoom_increment else -@zoom_increment;
         
-        @select('#zoom')[0].update 'Current zoom: ' + @camera.position.z
+        console.log ['wheel', @zoom, e.wheelDelta]
         
-        e.stop()
+        @zoom += (if e.wheelDelta > 0 then -@zoom_speed else @zoom_speed)
+        @camera.fov = @zoom
+        @camera.updateProjectionMatrix()
+        
+        @render()
+        
         return
     
-    initscene: () ->
+    initcamera: () ->
+        @view_angle = 10
+        @aspect = @width / @height
+        @near = 1
+        @far = 10000
         
-        #@camera_vector = new THREE.Vector3(45, 45, 45)
+        @camera = new THREE.PerspectiveCamera(@zoom, @aspect, @near, @far)
+        @camera.position.y = -450;
+        @camera.position.z = 400;
         
-        @camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-        @camera.position.z = @initial_zoom;
+        @camera.lookAt(new THREE.Vector3(0, 0, 0));
         
+        @scene.add(@camera)
         
-        @select('#zoom')[0].update 'Current zoom: ' + @camera.position.z
-        
-        @scene = new THREE.Scene();
-        
-        @renderer = new THREE.CanvasRenderer();
-        @renderer.setSize(780, 468);
+        return
+    
+    initrenderer: () ->
+    
+        params = 
+            clearColor: 0x00000000
+            clearAlpha: 0
+            antialias: true
+        @renderer = new THREE.CanvasRenderer(params);
+        @renderer.clear()
+        @renderer.setSize(@width, @height);
+        @renderer.shadowMapEnabled = true
+        @renderer.shadowMapAutoUpdate = true
         
         @select('#scene')[0].insert @renderer.domElement
+        @select('#scene')[0].setStyle
+            backgroundColor: '#ffffff'
         
+        return
+    
+    initlights: () ->
+        ambientLight = new THREE.AmbientLight( 0x404040 )
+        @scene.add( ambientLight )
+
+        directionalLight = new THREE.DirectionalLight( 0xffffff )
+        directionalLight.position.x = 1
+        directionalLight.position.y = 1
+        directionalLight.position.z = 0.75
+        directionalLight.position.normalize()
+        @scene.add( directionalLight )
+
+        directionalLight = new THREE.DirectionalLight( 0x808080 )
+        directionalLight.position.x = - 1
+        directionalLight.position.y = 1
+        directionalLight.position.z = - 0.75
+        directionalLight.position.normalize()
+        @scene.add( directionalLight )
+        
+        return
+    
+    initgrid: () ->
+        @grid_size = 200
+        @grid_spacing = 10
+        
+        geometry = new THREE.Geometry()
+        geometry.vertices.push( new THREE.Vector3( -@grid_size/2, 0, 0 ) )
+        geometry.vertices.push( new THREE.Vector3( @grid_size/2, 0, 0 ) )
+
+        material = new THREE.LineBasicMaterial( { color: 0x000000, opacity: 0.4 } )
+
+        for i in [0..20]
+
+            line = new THREE.Line( geometry, material )
+            line.position.y = (i * @grid_spacing) - (@grid_size / 2)
+            @scene.add( line )
+
+            line = new THREE.Line( geometry, material )
+            line.position.x = (i * @grid_spacing) - (@grid_size / 2)
+            line.rotation.z = 90 * Math.PI / 180
+            @scene.add( line )
+
+        
+        return
+    
+    animate: () ->
+        #console.log ['animate...', @animate]
+        requestAnimationFrame(() => @animate())
+        @render()
+        return
+    
+    render: () ->
+        @controls.update()
+        @renderer.render(@scene, @camera)
         return
     
     update: () ->
         
-        @scene = new THREE.Scene()
-        
         tree = @parser.parse @editor.getValue()
-        
         evaluator = new OpenSCADEvaluator(tree)
         
         root_ctx = new Context()
@@ -388,18 +461,14 @@ for(i = [ [ 0,  0,  0],
         
         material = new THREE.MeshBasicMaterial(params)
         @mesh = new THREE.Mesh(@geometry, material)
-                
-        #console.log @mesh
-        
-        @add_axis()
         
         @scene.add @mesh
         
         @select('#errors')[0].hide()
         @select('#scene')[0].show()
         
-        @renderer.render(@scene, @camera)
-        #@select('#scene')[0].update(s)
+        @render()
+        
         try
             x=1
         catch e
@@ -412,88 +481,6 @@ for(i = [ [ 0,  0,  0],
             
             @select('#errors')[0].update('<pre>' + msg + '</pre>')
             
-        
-        return
-    
-    add_axis: () ->
-        
-        geometry = new THREE.Geometry()
-        geometry.vertices.push new THREE.Vector3(-50,0,0)
-        geometry.vertices.push new THREE.Vector3(50,0,0)
-        line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 0.8 }))
-        @mesh.add line
-        
-        font = {
-                size: 4,
-                height: 1,
-                curveSegments: 2,
-                font: "helvetiker"
-            }
-        
-        geometry = new THREE.TextGeometry("x", font)
-        mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
-        mesh.position = new THREE.Vector3(55,0,0)
-        mesh.rotation = new THREE.Vector3(0.1,0.1,0.1)
-        @mesh.add mesh
-        
-        geometry = new THREE.Geometry();
-        geometry.vertices.push new THREE.Vector3(0,-50,0)
-        geometry.vertices.push new THREE.Vector3(0,50,0)
-        line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 1 }))
-        @mesh.add line
-        
-        geometry = new THREE.TextGeometry("y", font)
-        mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
-        mesh.position = new THREE.Vector3(0,55,0)
-        mesh.rotation = new THREE.Vector3(0.1,0.1,0.1)
-        @mesh.add mesh
-        
-        geometry = new THREE.Geometry();
-        geometry.vertices.push new THREE.Vector3(0,0,-50)
-        geometry.vertices.push new THREE.Vector3(0,0,50)
-        line = new THREE.Line( geometry, new THREE.LineBasicMaterial({ color: 0, opacity: 0.8 }))
-        @mesh.add line
-        
-        geometry = new THREE.TextGeometry("z", font)
-        mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0}))
-        mesh.position = new THREE.Vector3(0,0,55)
-        @mesh.add mesh
-        
-        return
-    
-    animate: () ->
-        
-        # note: three.js includes requestAnimationFrame shim
-        requestAnimationFrame( () => @animate() );
-        
-        if @mesh?
-            #@mesh.rotation.x = (20 * 0.0174532925);
-            #@mesh.rotation.y = (-20 * 0.0174532925);
-        
-            @camera.position.z = 80
-            @camera.position.y = -65
-            @camera.position.x = 50
-            #@camera.position.z = 100
-            
-            @camera.rotation.y = (0 * 0.0174532925)
-            @camera.rotation.x = (45 * 0.0174532925)
-            @camera.rotation.z = (0 * 0.0174532925)
-            
-            @camera_vector.x = 0
-            @camera_vector.y = 0
-            @camera_vector.z = 0
-            #@camera.lookAt(@camera_vector)
-            
-            @mesh.rotation.z += -0.01;
-            
-            #@camera.position.z = 100;
-            #@camera.position.z = 500;
-        
-            #@mesh.rotation.y = (45 * 0.0174532925);
-            #@mesh.rotation.x += 0.01;
-            #@mesh.rotation.y += 0.02;
-        
-        @renderer.render( @scene, @camera );
         
         return
 
