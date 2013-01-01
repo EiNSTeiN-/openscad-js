@@ -129,13 +129,18 @@ for(i = [ [ 0,  0,  0],
             @select('#output')[0].show()
             
             @select('#output')[0].value = output
+            
         catch e
             
             @select('#output')[0].hide()
             @select('#errors')[0].show()
             
+            console.log ['exception', e]
+            console.log ['exception', e.stack]
             msg = e.toString()
             msg = msg.replace(/\n/g, '<br />')
+            msg += '<br />'
+            msg += e.stack
             
             @select('#errors')[0].update('<pre>' + msg + '</pre>')
         
@@ -210,8 +215,13 @@ for(i = [ [ 0,  0,  0],
             @select('#output')[0].hide()
             @select('#errors')[0].show()
             
+            console.log ['exception', e]
+            console.log ['exception', e.stack]
+            
             msg = e.toString()
             msg = msg.replace(/\n/g, '<br />')
+            msg += '<br />'
+            msg += e.stack
             
             @select('#errors')[0].update('<pre>' + msg + '</pre>')
             
