@@ -355,6 +355,11 @@ class MultMatrix extends GeometryBase
     multmatrix([[a1, b1, c1, d1], [a2, b2, c2, d2], [a3, b3, c3, d3], [a4, b4, c4, d4]])
     """
     constructor: (@body, args, kwargs) ->
+    
+        if @body? and @body.constructor.name == 'Objects'
+            #console.log ['multmatrix...', @body.constructor.name]
+            @body = new Union(@body)
+        
         @prototype = ['m']
         @parseargs(args, kwargs)
         
@@ -418,7 +423,9 @@ class Intersection extends GeometryBase
     toString: () -> 'intersection(){' + @body.toString() + '}'
 
 class Objects extends GeometryBase
-    constructor: (@objects) -> return
+    constructor: (@objects) ->
+        @objects ?= []
+        return
     toString: () ->
         return (obj.toString() for obj in @objects).join(',')
 

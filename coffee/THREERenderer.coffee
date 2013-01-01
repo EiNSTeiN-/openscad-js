@@ -12,7 +12,7 @@ class THREERenderer
         return
     
     render: (node) ->
-        
+        return if not node?
         
         nodetype = node.constructor.name
         switch nodetype
@@ -106,6 +106,7 @@ class THREERenderer
                 union = THREE.CSG.toCSG(list[0]);
                 
                 for child in list.slice(1)
+                    #console.log ['child', child]
                     csg = THREE.CSG.toCSG(child)
                     union = union.union(csg)
                 
@@ -135,6 +136,7 @@ class THREERenderer
             when 'Intersection'
                 
                 list = @render(node.body)
+                return if not list?
                 return list if not (list instanceof Array) or list.length <= 1
                 list = list.compact()
                 
@@ -152,6 +154,7 @@ class THREERenderer
             when 'Color'
                 
                 list = @render(node.body)
+                return if not list?
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
@@ -162,6 +165,7 @@ class THREERenderer
             when 'MultMatrix'
                 
                 list = @render(node.body)
+                return if not list?
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
