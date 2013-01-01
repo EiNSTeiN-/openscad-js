@@ -52,6 +52,7 @@ if (typeof require !== 'undefined') {
 "\""[^"]*"\""         return 'STRING'
 "/*"(.|\n)*?"*/"           /* ignore comment */
 "//"[^\n]*            /* ignore comment */
+"<"[0-9a-zA-Z_\.\/]+">"[\;]?     return 'IMPORTNAME'
 "<="                  return 'LE'
 ">="                  return 'GE'
 "=="                  return 'EQ'
@@ -78,8 +79,8 @@ if (typeof require !== 'undefined') {
 "*"                   return "*"
 "%"                   return "%"
 "#"                   return "#"
-"include"\s+"<"[0-9a-zA-Z_\.\/]+">" return 'INCLUDE'
-"use"\s+"<"[0-9a-zA-Z_\.\/]+">" return 'USE'
+"include"             return 'INCLUDE'
+"use"                 return 'USE'
 "module"              return 'MODULE'
 "function"            return 'FUNCTION'
 "for"                 return 'FOR'
@@ -135,10 +136,20 @@ if (typeof require !== 'undefined') {
 %% /* language grammar */
 
 use:
-    USE { $$.children.push(Use($1)); } ; 
+    USE IMPORTNAME {
+        $2 = $2.substring(1, $2.length-1);
+        if($2[$2.length-1] == '>')
+            $2 = $2.substring(0, $2.length-1);
+        $$ = new Use($2);
+    } ; 
 
 include:
-    INCLUDE { $$.children.push(Include($1)); } ;
+    INCLUDE IMPORTNAME {
+        $2 = $2.substring(1, $2.length-1);
+        if($2[$2.length-1] == '>')
+            $2 = $2.substring(0, $2.length-1);
+        $$ = new Include($2);
+    } ;
 
 root_module :
     input {
