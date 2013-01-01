@@ -11,6 +11,28 @@ class Assignment
     pprint: () -> return @identifier.pprint() + ' = ' + @expression.pprint() + ';'
     dump: () -> return '<assignment id=' + @identifier.dump() + ' value=' + @expression.dump() + '>'
 
+class Include
+    """
+    include <`name`>;
+    """
+    
+    constructor: (@name) ->
+        return
+    
+    pprint: () -> return 'include <' + @name + '>;'
+    dump: () -> return '<include filename=' + @name + '>'
+
+class Use
+    """
+    use <`name`>;
+    """
+    
+    constructor: (@name) ->
+        return
+    
+    pprint: () -> return 'use <' + @name + '>;'
+    dump: () -> return '<use filename=' + @name + '>'
+
 class ModuleDefinition
     """
     module `identifier` ( `arguments` ) `body`
@@ -336,6 +358,8 @@ class CurlyBraces
 
 if module?
     module.exports =
+        Use: Use,
+        Include: Include,
         Assignment: Assignment,
         ModuleDefinition: ModuleDefinition,
         FunctionDefinition: FunctionDefinition,
