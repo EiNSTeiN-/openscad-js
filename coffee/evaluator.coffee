@@ -185,7 +185,7 @@ class Color extends GeometryBase
         
         return
     
-    toString: () -> return 'rotate(' + @formatargs() + '){' + @body.toString() + '}'
+    toString: () -> return 'color(' + @formatargs() + '){' + @body.toString() + '}'
 
 # transofrmations: they all end up in a multmatrix operation; classes are just for readability
 
@@ -574,7 +574,8 @@ class OpenSCADEvaluator
         ctx.set 'scale', Scale
         ctx.set 'multmatrix', MultMatrix
         ctx.set 'mirror', Mirror
-        # TODO: NOT POSSIBLE WITH CANVAS ctx.set 'color', Color
+        # TODO: NOT POSSIBLE WITH CANVAS 
+        ctx.set 'color', Color
         # TODO: ctx.set 'polygon', Polygon
         # TODO: ctx.set 'linear_extrude', LinearExtrude
         ctx.set 'render', Render
@@ -592,6 +593,30 @@ class OpenSCADEvaluator
         
         nodetype = node.constructor.name
         switch nodetype
+            when "Include"
+                """ call the 'include' function to get new nodes. """
+                
+                fct = ctx.get('include')
+                if not fct?
+                    throw '"include" is not defined in this context'
+                
+                node = fct(node.name)
+                @walk(ctx, node)
+                
+                return
+            
+            when "Use"
+                """ call the 'use' function to get new nodes. """
+                
+                fct = ctx.get('use')
+                if not fct?
+                    throw '"include" is not defined in this context'
+                
+                node = fct(node.name)
+                @walk(ctx, node)
+                
+                return
+            
             when "Assignment"
                 """ set the proper value in the current context. """
                 
@@ -734,6 +759,8 @@ class OpenSCADEvaluator
                     new_ctx = new Context(ctx, b.argshash)
                     m = @walk(new_ctx, ctor.body)
                     
+                    if ctor.constructor.name == 'ModuleDefinition' and m.constructor.name == 'Objects'
+                        m = new Union(m)
                 else
                     """ the constructor is one of our built-in geometry objects """
                     
