@@ -155,27 +155,6 @@ class THREERenderer
                 list = [list] if not (list instanceof Array)
                 list = list.compact()
                 
-                # This doesn't work with a CanvasRenderer so I couldn't test anything
-                for child in list
-                    child.dynamic = true
-                    for i in [0..child.vertices.length-1]
-                        #sides = ( face instanceof THREE.Face3 ) ? 3 : 4
-                        color = new THREE.Color(0xff0000)
-                        #color.setRGB(node.r, node.g, node.b)
-                        child.colors[i] = color
-                    console.log child.faces.length
-                    for i in [0..child.faces.length-1]
-                        face = child.faces[i]
-                        face.color = new THREE.Color(0xff0000)
-                        console.log ['face', face]
-                        sides = if face instanceof THREE.Face3 then 3 else 4
-                        console.log sides
-                        for j in [0..sides-1]
-                            color = new THREE.Color(0xff0000)
-                            face.vertexColors[j] = color
-                        
-                    console.log ['color item', child]
-                
                 console.log ['color', list] if @debug
                 return list[0] if list.length == 1
                 return list
