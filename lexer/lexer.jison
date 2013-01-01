@@ -50,7 +50,7 @@ if (typeof require !== 'undefined') {
 [0-9]+"."[0-9]*([Ee][+-]?[0-9]+)? return 'NUMBER'
 [0-9]+([Ee][+-]?[0-9]+)? return 'NUMBER'
 "\""[^"]*"\""         return 'STRING'
-"/*".*?"*/"           /* ignore comment */
+"/*"(.|\n)*?"*/"           /* ignore comment */
 "//"[^\n]*            /* ignore comment */
 "<="                  return 'LE'
 ">="                  return 'GE'
@@ -141,7 +141,7 @@ include:
     INCLUDE { $$.children.push(Include($1)); } ;
 
 root_module :
-    input EOF {
+    input {
         $$ = new ModuleBody();
         if($1 instanceof Array) {
             $$.children = $1;
@@ -176,7 +176,8 @@ input:
         } else {
             $$ = [$1];
         }
-    } ;
+    } |
+    EOF ;
 
 inner_input:
     /* empty */ |
